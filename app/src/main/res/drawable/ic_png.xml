@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animation-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item android:drawable="@drawable/ic_png0" android:duration="100" />
+    <item android:drawable="@drawable/ic_png1" android:duration="100" />
+    <item android:drawable="@drawable/ic_png02" android:duration="100" />
+    <item android:drawable="@drawable/ic_png03" android:duration="100" />
+    <item android:drawable="@drawable/ic_png04" android:duration="100" />
+    <item android:drawable="@drawable/ic_png05" android:duration="100" />
+    <item android:drawable="@drawable/ic_png06" android:duration="100" />
+    <item android:drawable="@drawable/ic_png07" android:duration="100" />
+    <item android:drawable="@drawable/ic_png08" android:duration="100" />
+    <item android:drawable="@drawable/ic_png09" android:duration="100" />
+    <item android:drawable="@drawable/ic_png10" android:duration="100" />
+    <item android:drawable="@drawable/ic_png11" android:duration="100" />
+    <item android:drawable="@drawable/ic_png12" android:duration="100" />
+    <item android:drawable="@drawable/ic_png13" android:duration="100" />
+    <item android:drawable="@drawable/ic_png14" android:duration="100" />
+    <item android:drawable="@drawable/ic_png15" android:duration="100" />
+    <item android:drawable="@drawable/ic_png16" android:duration="1000" />
+</animation-list>
