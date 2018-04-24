@@ -3,4 +3,4 @@
 
 效果如下：
 
-![screenshottranslate-drawable.gif]
+![screenshot/translate-drawable.gif]
