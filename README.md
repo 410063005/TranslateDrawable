@@ -13,3 +13,308 @@ TranslateDrawable仅使用一张图片
 
 + 更少的图片资源，TranslateDrawable只需要一张图片，AnimationDrawable需要一张以上
 + 更少的内存消耗
+
+# 内存分析
+
+场景一：点击按钮切换到"TranslateDrawable", 应用内存稳定在11.2MB左右
+
+场景二：点击按钮切换到"TranslateDrawable", 应用内存稳定在12.1MB左右
+
+场景一和场景二中约0.9MB的内存差值是如何产生的呢？
+
+分别dump出两种场景下的内存占用(gc后等待内存稳定时在Android Profiler中Dump Java heap)。
+
+![animation-drawable-memory](screenshot/animation-drawable-mem.png)
+
+![translate-drawable-memory](screenshot/translate-drawable-mem.png)
+
+由于我们的demo极其简单，两种场景唯一区别是生成的Bitmap数据不同。从heap中可以看到：
+
++ 场景一一共产生18个Bitmap，其中有16个大小为63579B的Bitmap
++ 场景二一共产生两个相当小的Bitmap。
+
+简单计算一下，63579*16/1024=993KB=0.97MB，这个值非常接近我们前面看到的内存差值。
+
+## 为什么是63579
+
+AnimationDrawable一共使用了16张PNG图片，图片放在xxhdpi目录，每张大小是216*96像素。
+
+![png-series](screenshot/png-series.png)
+
+以每个像素占4个字节计算，216*96*4=82944，一个Bitmap占用的内存大小应该是82944B。为什么我们在heap中观察到的Bitmap大小是63579呢？
+
+先来看一个像素占几个字节的问题。相关的类包括BitmapFactory.Options和Bitmap.Config。
+
+```java
+    public static class Options {
+        /**
+         * If this is non-null, the decoder will try to decode into this
+         * internal configuration. If it is null, or the request cannot be met,
+         * the decoder will try to pick the best matching config based on the
+         * system's screen depth, and characteristics of the original image such
+         * as if it has per-pixel alpha (requiring a config that also does).
+         *
+         * Image are loaded with the {@link Bitmap.Config#ARGB_8888} config by
+         * default.
+         */
+        public Bitmap.Config inPreferredConfig = Bitmap.Config.ARGB_8888;
+    }
+
+    /**
+     * Possible bitmap configurations. A bitmap configuration describes
+     * how pixels are stored. This affects the quality (color depth) as
+     * well as the ability to display transparent/translucent colors.
+     */
+    public enum Config {
+        /**
+         * Each pixel is stored on 4 bytes. Each channel (RGB and alpha
+         * for translucency) is stored with 8 bits of precision (256
+         * possible values.)
+         *
+         * This configuration is very flexible and offers the best
+         * quality. It should be used whenever possible.
+         */
+        ARGB_8888   (5),
+    }
+```
+
+BitmapDrawable调用`BitmapFactory.decodeResourceStream`生成Bitmap时使用一个缺省的Options实例，该实例的`inPreferredConfig`是ARGB_8888，所以生成的Bitmap对象一个像素占4个字节。
+
+注意BitmapFactory.Options的文档中关于`inDensity`提到非常重要的一点。
+
+>  如果`inScaled`为`true`(缺省就是true)，并且`inDensity`跟`inTargetDensity`不一致，解码出来的Bitmap会被缩放以适应目标像素密度(target density)
+
+```java
+    public static class Options {
+        /**
+         * Create a default Options object, which if left unchanged will give
+         * the same result from the decoder as if null were passed.
+         */
+        public Options() {
+            inScaled = true;
+            inPremultiplied = true;
+        }
+
+        /**
+         * The pixel density to use for the bitmap.  This will always result
+         * in the returned bitmap having a density set for it (see
+         * {@link Bitmap#setDensity(int) Bitmap.setDensity(int)}).  In addition,
+         * if {@link #inScaled} is set (which it is by default} and this
+         * density does not match {@link #inTargetDensity}, then the bitmap
+         * will be scaled to the target density before being returned.
+         * /
+        public int inDensity;
+
+        /**
+         * The pixel density of the destination this bitmap will be drawn to.
+         * This is used in conjunction with {@link #inDensity} and
+         * {@link #inScaled} to determine if and how to scale the bitmap before
+         * returning it.
+         * /
+        public int inTargetDensity;
+
+        /**
+         * When this flag is set, if {@link #inDensity} and
+         * {@link #inTargetDensity} are not 0, the
+         * bitmap will be scaled to match {@link #inTargetDensity} when loaded,
+         * rather than relying on the graphics system scaling it each time it
+         * is drawn to a Canvas.
+         *
+         * <p>BitmapRegionDecoder ignores this flag, and will not scale output
+         * based on density. (though {@link #inSampleSize} is supported)</p>
+         *
+         * <p>This flag is turned on by default and should be turned off if you need
+         * a non-scaled version of the bitmap.  Nine-patch bitmaps ignore this
+         * flag and are always scaled.
+         *
+         * <p>If {@link #inPremultiplied} is set to false, and the image has alpha,
+         * setting this flag to true may result in incorrect colors.
+         */
+        public boolean inScaled;
+    }
+```
+
+我用于测试的设备当前屏幕密度(getResources().getDisplayMetrics().densityDpi)是420dp。所以具体到我们的代码
+
+```
+    public static class Options {
+        // 480dp, 图片放在xxhdpi目录下，对应的屏幕像素密度是480dp，见DisplayMetrics.DENSITY_XXHIGH
+        public int inDensity;
+
+        // 420dp，不是跟xxhdpi完全吻合的标准的像素密度
+        public int inTargetDensity;
+
+        // true，BitmapDrawable调用BitmapFactory.decodeResourceStream()解码Bitmap时使用的isScaled为true
+        public boolean inScaled;
+
+    }
+}
+```
+
+粗略的计算方式是这样的，
+
+216*420/480=189
+
+96*420/480=84
+
+所以放在xxhdpi目录下尺寸为216*96像素解码出来的Bitmap尺寸变成了189*84，占用的内存大小为189*84*4=63504。
+
+debug观察Bitmap的width和height
+
+![](screenshot/bitmap-width-height-debug.png)
+
+注意：计算出来的63504跟heap中观察到的63579还是有些不符。原因在于前者只是存放图片像素数据所占用的内存大小，而后者是Bitmap对象的retained memory。
+
+# 问题
+## 为什么不用动画来实现
+
+除了AnimationDrawable和TranslateDrawable，使用动画也可以实现我们所需要的效果。
+
+布局如下：
+
+```xml
+<LinearLayout>
+<!-- 黄色背景的button -->
+<Button />
+<!-- 前景图片 -->
+<ImageView android:src="@drawable/ic_demo" />
+</LinearLayout>
+```
+
+使用`ViewPropertyAnimator`控制ImageView的位置即可。
+
+这种方案优点是可以更精确的控制动画效果，但布局和代码复杂，不像TranslateDrawable可以简单自然地封装和复用。
+
+## 减少AnimationDrawable使用的PNG数量
+
+demo中AnimationDrawable使用了16张PNG图片。是否可以减少以降低资源和内存占用？
+
+尝试将16张减少到8张，每张的duration仍然为100ms，动画效果尚可接受，只是速度过快。duration增加到200ms，动画速度降低了，但显得不连贯。
+
+尝试将16张减少到4张，动画效果非常差。
+
+![](screenshot/animation-drawable-4-png.gif)
+
+![](screenshot/animation-drawable-4-png-200.gif)
+
+为了让AnimationDrawable达到较好的动画效果，需要适当的图片数量。但相应地，图片越多，内存开销也越大。
+<!--
+
+先来看一组常量。`DisplayMetrics`定义了标准的屏幕密度。
+
+```java
+public class DisplayMetrics {
+    /**
+     * Standard quantized DPI for low-density screens.
+     */
+    public static final int DENSITY_LOW = 120;
+
+    /**
+     * Standard quantized DPI for medium-density screens.
+     */
+    public static final int DENSITY_MEDIUM = 160;
+
+    /**
+     * Standard quantized DPI for high-density screens.
+     */
+    public static final int DENSITY_HIGH = 240;
+
+    /**
+     * Intermediate density for screens that sit somewhere between
+     * {@link #DENSITY_XHIGH} (320 dpi) and {@link #DENSITY_XXHIGH} (480 dpi).
+     * This is not a density that applications should target, instead relying
+     * on the system to scale their {@link #DENSITY_XXHIGH} assets for them.
+     */
+    public static final int DENSITY_420 = 420;
+
+    /**
+     * Standard quantized DPI for extra-extra-high-density screens.
+     */
+    public static final int DENSITY_XXHIGH = 480;
+```
+
+我的模拟器上`resources.displayMetrics.density`返回420，即当前屏幕密度是420dp。
+
+图片放在xxhdpi目录中，xxhdpi默认对应的屏幕密度是480dp，跟当前屏幕密度并不一致。所以系统必须进行恰当的缩放处理。如何处理呢？
+
+先看一段关键代码：
+
+```
+// Bitmap.java
+    public int mDensity = getDefaultDensity();
+
+    public int getScaledWidth(int targetDensity) {
+        return scaleFromDensity(getWidth(), mDensity, targetDensity);
+    }
+
+    /**
+     * Convenience method that returns the height of this bitmap divided
+     * by the density scale factor.
+     *
+     * @param targetDensity The density of the target canvas of the bitmap.
+     * @return The scaled height of this bitmap, according to the density scale factor.
+     */
+    public int getScaledHeight(int targetDensity) {
+        return scaleFromDensity(getHeight(), mDensity, targetDensity);
+    }
+
+    /**
+     * @hide
+     */
+    static public int scaleFromDensity(int size, int sdensity, int tdensity) {
+        if (sdensity == DENSITY_NONE || tdensity == DENSITY_NONE || sdensity == tdensity) {
+            return size;
+        }
+
+        // Scale by tdensity / sdensity, rounding up.
+        return ((size * tdensity) + (sdensity >> 1)) / sdensity;
+    }
+```
+对我们216*96像素的图片而言，处理过程如下：
+
+scaleFromDensity(216, 480, 420)
+scaleFromDensity(96, 480, 420)
+
+至此，我们自己手动算一下缩放后的图片大小吧
+
+```
+Python 2.7.10 (default, Oct  6 2017, 22:29:07)
+[GCC 4.2.1 Compatible Apple LLVM 9.0.0 (clang-900.0.31)] on darwin
+Type "help", "copyright", "credits" or "license" for more information.
+>>> ((216 * 420) + (480 >> 1)) / 480
+189
+>>> ((96 * 420) + (480 >> 1)) / 480
+84
+```
+
+
+
+
+63579是怎么来的呢？
+
+216*96*4
+
+屏幕密度 2.3
+
+189*84像素
+
+
+```java
+// BitmapDrawable.java
+    private void computeBitmapSize() {
+        final Bitmap bitmap = mBitmapState.mBitmap;
+        if (bitmap != null) {
+            mBitmapWidth = bitmap.getScaledWidth(mTargetDensity);
+            mBitmapHeight = bitmap.getScaledHeight(mTargetDensity);
+        } else {
+            mBitmapWidth = mBitmapHeight = -1;
+        }
+    }
+
+
+```
+
+
+*4/3*2.3=63590
+
+-->
