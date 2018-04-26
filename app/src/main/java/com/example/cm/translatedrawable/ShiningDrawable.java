@@ -12,6 +12,8 @@ public class ShiningDrawable extends LayerDrawable implements Animatable, Runnab
     private static final String TAG = "ShiningDrawable";
     private boolean mRunning;
 
+    private boolean mReverse;
+    private int mLevelStep = 200;
     private Drawable mBgDrawable;
     private TranslateDrawable mFgDrawable;
 
@@ -30,7 +32,7 @@ public class ShiningDrawable extends LayerDrawable implements Animatable, Runnab
         if (animate) {
             // Unscheduling may have clobbered these values; restore them
             mRunning = true;
-            scheduleSelf(this, SystemClock.uptimeMillis() + 50);
+            scheduleSelf(this, SystemClock.uptimeMillis() + 30);
         }
     }
 
@@ -85,6 +87,18 @@ public class ShiningDrawable extends LayerDrawable implements Animatable, Runnab
         nextFrame(false);
     }
 
+    public void setLevelStep(int levelStep) {
+        if (levelStep <= 0 || levelStep >= 10000) {
+            throw new IllegalArgumentException("levelStep " + levelStep + " out of range (0, 10000)");
+        }
+
+        mLevelStep = levelStep;
+    }
+
+    public void setReverse(boolean reverse) {
+        mReverse = reverse;
+    }
+
     @Override
     public void unscheduleSelf(@NonNull Runnable what) {
         mRunning = false;
@@ -92,11 +106,30 @@ public class ShiningDrawable extends LayerDrawable implements Animatable, Runnab
     }
 
     private void nextFrame(boolean unschedule) {
-        int nextLevel = getLevel() + 300;
+        int nextLevel = getNextLevel();
+        setFrame(nextLevel, unschedule, true);
+    }
+
+    private int getNextLevel() {
+        int nextLevel = getLevel();
+        if (mDirection > 0) {
+            nextLevel += mLevelStep;
+        } else {
+            nextLevel -= mLevelStep;
+        }
+
         if (nextLevel >= 10000) {
+            mDirection = mReverse ? -1 : 1;
+            nextLevel = mReverse ? 10000 : 0;
+        }
+
+        if (nextLevel < 0) {
+            mDirection = 1;
             nextLevel = 0;
         }
 
-        setFrame(nextLevel, unschedule, true);
+        return nextLevel;
     }
+
+    private int mDirection = 1;
 }

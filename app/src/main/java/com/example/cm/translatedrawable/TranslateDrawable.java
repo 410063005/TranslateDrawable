@@ -17,12 +17,23 @@ public class TranslateDrawable extends Drawable {
     private Drawable mDrawable;
 
     private int mOffset;
+    private int mWidth = -1;
 
     public TranslateDrawable() {
     }
 
     public void setOffset(int offset) {
-        mOffset = offset;
+        if (mOffset != offset) {
+            mOffset = offset;
+            invalidateSelf();
+        }
+    }
+
+    public void setWidth(int width) {
+        if (mWidth != width) {
+            mWidth = width;
+            invalidateSelf();
+        }
     }
 
     @Override
@@ -50,6 +61,8 @@ public class TranslateDrawable extends Drawable {
             if (d.getIntrinsicHeight() > 0) {
                 float f = getBounds().height() * 1f / d.getIntrinsicHeight();
                 d.setBounds(0, bounds.top, (int) (d.getIntrinsicWidth() * f), bounds.bottom);
+            } else if (mWidth > 0) {
+                d.setBounds(0, bounds.top, mWidth, bounds.bottom);
             } else {
                 d.setBounds(bounds);
             }
@@ -58,8 +71,9 @@ public class TranslateDrawable extends Drawable {
 
     @Override
     public void setAlpha(int alpha) {
-        if (mDrawable != null) {
+        if (mDrawable != null && mDrawable.getAlpha() != alpha) {
             mDrawable.setAlpha(alpha);
+            invalidateSelf();
         }
     }
 
@@ -67,6 +81,7 @@ public class TranslateDrawable extends Drawable {
     public void setColorFilter(@Nullable ColorFilter colorFilter) {
         if (mDrawable != null) {
             mDrawable.setColorFilter(colorFilter);
+            invalidateSelf();
         }
     }
 

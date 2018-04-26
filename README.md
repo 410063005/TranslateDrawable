@@ -16,9 +16,9 @@ TranslateDrawable仅使用一张图片
 
 # 内存分析
 
-场景一：点击按钮切换到"TranslateDrawable", 应用内存稳定在11.2MB左右
+场景一：点击按钮切换到"AnimationDrawable", 应用内存稳定在12.1MB左右
 
-场景二：点击按钮切换到"TranslateDrawable", 应用内存稳定在12.1MB左右
+场景二：点击按钮切换到"TranslateDrawable", 应用内存稳定在11.2MB左右
 
 场景一和场景二中约0.9MB的内存差值是如何产生的呢？
 
@@ -33,15 +33,17 @@ TranslateDrawable仅使用一张图片
 + 场景一一共产生18个Bitmap，其中有16个大小为63579B的Bitmap
 + 场景二一共产生两个相当小的Bitmap。
 
-简单计算一下，63579*16/1024=993KB=0.97MB，这个值非常接近我们前面看到的内存差值。
+简单计算一下，63579*16/1024=993KB=0.97MB，这个值非常接近我们前面看到的内存差值。基本可以认为这16个大小为63579B的Bitmap是导致场景一内存占用更多。
+
+TranslateDrawable相对AnimationDrawable的优势在于生成更少的Bitmap，节省内存。
 
 ## 为什么是63579
 
-AnimationDrawable一共使用了16张PNG图片，图片放在xxhdpi目录，每张大小是216*96像素。
+AnimationDrawable一共使用了16张PNG图片，图片放在xxhdpi目录，每张大小是216x96像素。
 
 ![png-series](screenshot/png-series.png)
 
-以每个像素占4个字节计算，216*96*4=82944，一个Bitmap占用的内存大小应该是82944B。为什么我们在heap中观察到的Bitmap大小是63579呢？
+以每个像素占4个字节计算，216x96x4=82944，一个Bitmap占用的内存大小应该是82944B。为什么我们在heap中观察到的Bitmap大小是63579呢？
 
 先来看一个像素占几个字节的问题。相关的类包括BitmapFactory.Options和Bitmap.Config。
 
@@ -157,7 +159,7 @@ BitmapDrawable调用`BitmapFactory.decodeResourceStream`生成Bitmap时使用一
 
 96*420/480=84
 
-所以放在xxhdpi目录下尺寸为216*96像素解码出来的Bitmap尺寸变成了189*84，占用的内存大小为189*84*4=63504。
+所以放在xxhdpi目录下尺寸为216x96像素解码出来的Bitmap尺寸变成了189x84，占用的内存大小为189x84x4=63504。
 
 debug观察Bitmap的width和height
 
@@ -185,6 +187,10 @@ debug观察Bitmap的width和height
 
 这种方案优点是可以更精确的控制动画效果，但布局和代码复杂，不像TranslateDrawable可以简单自然地封装和复用。
 
+TranslateDrawable效果演示
+
+![](screenshot/translate-drawable-demo.gif)
+
 ## 减少AnimationDrawable使用的PNG数量
 
 demo中AnimationDrawable使用了16张PNG图片。是否可以减少以降低资源和内存占用？
@@ -192,10 +198,6 @@ demo中AnimationDrawable使用了16张PNG图片。是否可以减少以降低资
 尝试将16张减少到8张，每张的duration仍然为100ms，动画效果尚可接受，只是速度过快。duration增加到200ms，动画速度降低了，但显得不连贯。
 
 尝试将16张减少到4张，动画效果非常差。
-
-![](screenshot/animation-drawable-4-png.gif)
-
-![](screenshot/animation-drawable-4-png-200.gif)
 
 为了让AnimationDrawable达到较好的动画效果，需要适当的图片数量。但相应地，图片越多，内存开销也越大。
 <!--
