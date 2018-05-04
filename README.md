@@ -205,15 +205,15 @@ TranslateDrawable效果演示
 
 ![](screenshot/translate-drawable-demo.gif)
 
-## 减少AnimationDrawable使用的PNG数量
+## 能否减少AnimationDrawable使用的PNG数量
 
-demo中AnimationDrawable使用了16张PNG图片。是否可以减少以降低资源和内存占用？
+demo中AnimationDrawable使用了16张PNG图片，其占用内存的数量跟图片数量是相关的。是否可以减少图片数量以降低资源和内存占用？
 
-尝试将16张减少到8张，每张的duration仍然为100ms，动画效果尚可接受，只是速度过快。duration增加到200ms，动画速度降低了，但显得不连贯。
++ 尝试将16张减少到8张，每张图片的duration仍然为100ms，动画效果尚可接受，但动画速度过快
++ 尝试将16张减少到8张，每张图片的duration为200ms，动画速度降低了，但动画显得不连贯
++ 尝试将16张减少到4张，动画效果非常差
 
-尝试将16张减少到4张，动画效果非常差。
-
-为了让AnimationDrawable达到较好的动画效果，需要适当的图片数量。但相应地，图片越多，内存开销也越大。
+为了让AnimationDrawable达到较好的动画效果，需要*适当数量的图片*。
 <!--
 
 先来看一组常量。`DisplayMetrics`定义了标准的屏幕密度。
