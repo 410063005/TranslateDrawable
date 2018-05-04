@@ -7,13 +7,15 @@ TransalteDrawable是一个可平移的drawable，它的实现参考了以下几�
 
 基于TranslateDrawable，很容易实现类似AnimationDrawable效果的drawable。区别在于
 
-+ AnimationDrawable以逐帧的方式播放图片来实现动画效果
-+ TranslateDrawable对单张图片进行平移来实现动画效果
++ AnimationDrawable以逐帧播放图片的方式实现动画效果
++ TranslateDrawable对单张图片进行平移实现动画效果
 
 下图对比二者的动画效果
+
 ![translate-drawable](screenshot/translate-drawable.gif)
 
 其中，TranslateDrawable仅使用如下图片
+
 ![single-image](https://github.com/410063005/TranslateDrawable/blob/master/app/src/main/res/drawable-xxhdpi/ic_demo.png)
 
 在上述霓虹灯动画效果这类特定场景可使用TranslateDrawable，它对比AnimationDrawable的优势在于：
