@@ -218,5 +218,5 @@ demo中AnimationDrawable使用了16张PNG图片，其占用内存的数量跟图
 为了让AnimationDrawable达到较好的动画效果，需要*适当数量的图片*。
 
 # 总结
-TranslateDrawable对比AnimationDrawable需要更少
+TranslateDrawable相对于AnimationDrawable需要更少的图片资源以及更少的内存。TranslateDrawable相对于动画来说，用法简单，更易于复用
 
