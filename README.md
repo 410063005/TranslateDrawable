@@ -36,13 +36,15 @@ TransalteDrawable是一个可平移的drawable，它的实现参考了以下几�
 + 场景一 - 切换到"AnimationDrawable", 内存稳定在12.1MB左右
 + 场景二 - 切换到"TranslateDrawable", 内存稳定在11.2MB左右
 
-场景一和场景二中约0.9MB的内存差值是如何产生的呢？
+场景一和场景二中约0.9MB的内存差值是如何产生的呢？下面展开分析。
+
+我们的demo非常简单，两种场景区别仅仅在于TranslateDrawable和AnimationDrawable生成的Bitmap数据不同。从heap中找到Bitmap(bitmap占用内存最多，其他对象占用几乎可以忽略，所以这里只关注bitmap)
 
 ![animation-drawable-memory](screenshot/animation-drawable-mem.png)
 
 ![translate-drawable-memory](screenshot/translate-drawable-mem.png)
 
-我们的demo极其简单，两种场景区别仅仅在于TranslateDrawable和AnimationDrawable生成的Bitmap数据不同。从heap可以看到：
+从heap可以看到：
 
 + TranslateDrawable共产生2个较小的Bitmap
 + AnimationDrawable共产生18个Bitmap，其中有16个大小为63579B的Bitmap
