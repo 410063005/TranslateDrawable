@@ -1,41 +1,53 @@
 # TranslateDrawable
-参考RotateDrawable和ScaleDrawable以及AnimationDrawable和LayerDrawable实现的一个Drawable，从名字不难知道这个一个可平移的drawable。
+TransalteDrawable是一个可平移的drawable，它的实现参考了以下几个类
 
-TranslateDrawable与AnimationDrawable效果类似。但AnimationDrawable由图片序列构成，而TranslateDrawable对单张图片进行平移实现动画效果，对比效果如下：
++ RotateDrawable和ScaleDrawable，分别是旋转和缩放的drawable
++ AnimationDrawable，动画效果的drawable
++ LayerDrawable，叠加效果的drawable
+
+基于TranslateDrawable，很容易实现类似AnimationDrawable效果的drawable。区别在于
+
++ AnimationDrawable以逐帧的方式播放图片来实现动画效果
++ TranslateDrawable对单张图片进行平移来实现动画效果
+
+下图对比二者的动画效果
+![translate-drawable](screenshot/translate-drawable.gif)
+
+其中，TranslateDrawable仅使用如下图片
+![single-image](https://github.com/410063005/TranslateDrawable/blob/master/app/src/main/res/drawable-xxhdpi/ic_demo.png)
+
+在上述霓虹灯动画效果这类特定场景可使用TranslateDrawable，它对比AnimationDrawable的优势在于：
+
++ 使用更少的图片资源，减少APK大小
++ 占用更少的内存
 
 ![translate-drawable](screenshot/translate-drawable.gif)
 
-TranslateDrawable仅使用一张图片
+具体到上面的这个demo，对比数据如下：
 
-![single-image](https://github.com/410063005/TranslateDrawable/blob/master/app/src/main/res/drawable-xxhdpi/ic_demo.png)
-
-类似上面的动画效果，TranslateDrawable对比AnimationDrawable有以下优势：
-
-+ 更少的图片资源，TranslateDrawable只需要一张图片，AnimationDrawable需要一张以上
-+ 更少的内存消耗
++ TranslateDrawalbe只需要两张PNG图片，AnimationDrawable使用16张PNG图片
++ TranslateDrawable比AnimationDrawable占用的内存少0.9MB左右
 
 # 内存分析
+分别dump出两种场景下的内存占用(gc后待app内存稳定时通过Android Profiler中Dump Java heap功能导出heap)。
 
-场景一：点击按钮切换到"AnimationDrawable", 应用内存稳定在12.1MB左右
-
-场景二：点击按钮切换到"TranslateDrawable", 应用内存稳定在11.2MB左右
++ 场景一 - 切换到"AnimationDrawable", 内存稳定在12.1MB左右
++ 场景二 - 切换到"TranslateDrawable", 内存稳定在11.2MB左右
 
 场景一和场景二中约0.9MB的内存差值是如何产生的呢？
-
-分别dump出两种场景下的内存占用(gc后等待内存稳定时在Android Profiler中Dump Java heap)。
 
 ![animation-drawable-memory](screenshot/animation-drawable-mem.png)
 
 ![translate-drawable-memory](screenshot/translate-drawable-mem.png)
 
-由于我们的demo极其简单，两种场景唯一区别是生成的Bitmap数据不同。从heap中可以看到：
+我们的demo极其简单，两种场景区别仅仅在于TranslateDrawable和AnimationDrawable生成的Bitmap数据不同。从heap可以看到：
 
-+ 场景一一共产生18个Bitmap，其中有16个大小为63579B的Bitmap
-+ 场景二一共产生两个相当小的Bitmap。
++ TranslateDrawable共产生2个较小的Bitmap
++ AnimationDrawable共产生18个Bitmap，其中有16个大小为63579B的Bitmap
 
-简单计算一下，63579*16/1024=993KB=0.97MB，这个值非常接近我们前面看到的内存差值。基本可以认为这16个大小为63579B的Bitmap是导致场景一内存占用更多。
+63579*16/1024=993KB=0.97MB，这个值非常接近我们前面看到的内存差值。可以认为这16个大小为63579B的Bitmap是导致场景一内存占用更多。
 
-TranslateDrawable相对AnimationDrawable的优势在于生成更少的Bitmap，节省内存。
+**TranslateDrawable相对AnimationDrawable的优势在于生成更少的Bitmap，明显能节省内存。**
 
 ## 为什么是63579
 
@@ -43,9 +55,9 @@ AnimationDrawable一共使用了16张PNG图片，图片放在xxhdpi目录，每�
 
 ![png-series](screenshot/png-series.png)
 
-以每个像素占4个字节计算，216x96x4=82944，一个Bitmap占用的内存大小应该是82944B。为什么我们在heap中观察到的Bitmap大小是63579呢？
+以每个像素占4个字节计算，216x96x4=82944，所以一个Bitmap对象占用的内存大小应该是82944B。但为什么我们在heap中观察到的Bitmap大小是63579呢？
 
-先来看一个像素占几个字节的问题。相关的类包括BitmapFactory.Options和Bitmap.Config。
+Bitmap中一个像素到底占几个字节？回答这个问题，我们要了解的类包括BitmapFactory.Options和Bitmap.Config。
 
 ```java
     public static class Options {
@@ -80,9 +92,9 @@ AnimationDrawable一共使用了16张PNG图片，图片放在xxhdpi目录，每�
     }
 ```
 
-BitmapDrawable调用`BitmapFactory.decodeResourceStream`生成Bitmap时使用一个缺省的Options实例，该实例的`inPreferredConfig`是ARGB_8888，所以生成的Bitmap对象一个像素占4个字节。
+BitmapDrawable调用`BitmapFactory.decodeResourceStream()`生成Bitmap，该方法使用缺省的Options实例。缺省的Options实例的`inPreferredConfig`是ARGB_8888。**所以毫无疑问就我们这里的分析而言，生成的Bitmap对象一个像素占4个字节。**
 
-注意BitmapFactory.Options的文档中关于`inDensity`提到非常重要的一点。
+**注意**，BitmapFactory.Options的文档中关于`inDensity`提到非常重要的一点，如下：
 
 >  如果`inScaled`为`true`(缺省就是true)，并且`inDensity`跟`inTargetDensity`不一致，解码出来的Bitmap会被缩放以适应目标像素密度(target density)
 
@@ -136,9 +148,9 @@ BitmapDrawable调用`BitmapFactory.decodeResourceStream`生成Bitmap时使用一
     }
 ```
 
-我用于测试的设备当前屏幕密度(getResources().getDisplayMetrics().densityDpi)是420dp。所以具体到我们的代码
+我用于测试的设备屏幕密度是420dp (getResources().getDisplayMetrics().densityDpi)，所以Options实例的几个关键参数值如下：
 
-```
+```java
     public static class Options {
         // 480dp, 图片放在xxhdpi目录下，对应的屏幕像素密度是480dp，见DisplayMetrics.DENSITY_XXHIGH
         public int inDensity;
@@ -153,15 +165,15 @@ BitmapDrawable调用`BitmapFactory.decodeResourceStream`生成Bitmap时使用一
 }
 ```
 
-粗略的计算方式是这样的，
+`inDensity`和`inTargetDensity`不一致，所以生成的Bitmap会被缩放以适应目标像素密度。粗略计算如下：
 
 216*420/480=189
 
 96*420/480=84
 
-所以放在xxhdpi目录下尺寸为216x96像素解码出来的Bitmap尺寸变成了189x84，占用的内存大小为189x84x4=63504。
+放在xxhdpi目录下尺寸为216x96像素解码出来的Bitmap尺寸变成了189x84，占用的内存大小为189x84x4=63504。
 
-debug观察Bitmap的width和height
+debug观察Bitmap的width和height，可以看到果然是189x84
 
 ![](screenshot/bitmap-width-height-debug.png)
 
